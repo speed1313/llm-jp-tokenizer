@@ -40,18 +40,15 @@ https://github.com/huggingface/tokenizers/blob/v0.14.0/bindings/python/scripts/c
 
 
 TOKENIZER_CONFIG_JSON = """{
-  "unk_token": "<unk|LLM-jp>",
-  "bos_token": "<s|LLM-jp>",
-  "eos_token": "<EOD|LLM-jp>",
-  "pad_token": "<pad|LLM-jp>",
-  "cls_token": "<CLS|LLM-jp>",
-  "sep_token": "<SEP|LLM-jp>",
-  "eod_token": "<EOD|LLM-jp>",
-  "mask_token": "<mask|LLM-jp>",
+  "unk_token": "<unk>",
+  "bos_token": "<s>",
+  "eos_token": "</s>",
+  "sep_token": "</s>",
+  "cls_token": "<s>",
+  "pad_token": "<PAD>",
+  "eod_token": "<EOD>",
+  "mask_token": "<MASK>",
   "extra_ids": 0,
-  "additional_special_tokens": [
-    "</s|LLM-jp>"
-  ],
   "sp_model_kwargs": {},
   "model_max_length": 1000000000000000019884624838656,
   "clean_up_tokenization_spaces": false,
@@ -61,22 +58,20 @@ TOKENIZER_CONFIG_JSON = """{
 
 
 SPECIAL_TOKENS_MAP_JSON = """{
-    "additional_special_tokens": [
-        "</s|LLM-jp>"
-    ],
-    "bos_token": "<s|LLM-jp>",
-    "cls_token": "<CLS|LLM-jp>",
-    "eod_token": "<EOD|LLM-jp>",
-    "eos_token": "<EOD|LLM-jp>",
-    "mask_token": "<mask|LLM-jp>",
-    "pad_token": "<pad|LLM-jp>",
-    "sep_token": "<SEP|LLM-jp>",
-    "unk_token": "<unk|LLM-jp>"
+    "bos_token": "<s>",
+    "eod_token": "<EOD>",
+    "eos_token": "</s>",
+    "cls_token": "<s>",
+    "sep_token": "</s>",
+    "mask_token": "<MASK>",
+    "pad_token": "<PAD>",
+    "unk_token": "<unk>"
 }"""
 
 
 def format_special_token(label: str):
-    return f"{label[:-1]}|LLM-jp{label[-1]}"
+    #return f"{label[:-1]}|LLM-jp{label[-1]}"
+    return label
 
 
 def get_proto():
@@ -114,7 +109,7 @@ def convert_llmjp_unigram_spm_to_hf(input_sp_model_path: str, eod_token: str) ->
         normalizer_list.append(normalizers.Precompiled(precompiled_charsmap))
     replacement = "▁"
     """
-    # do not use Metaspace pre_tokenizer because all the continuous spaces are divided into single space sequences 
+    # do not use Metaspace pre_tokenizer because all the continuous spaces are divided into single space sequences
     tokenizer.pre_tokenizer = pre_tokenizers.Metaspace(
         replacement=replacement, add_prefix_space=True
     )
@@ -127,11 +122,20 @@ def convert_llmjp_unigram_spm_to_hf(input_sp_model_path: str, eod_token: str) ->
         ]
     )
     eod = format_special_token(eod_token)
+    # tokenizer.post_processor = processors.TemplateProcessing(
+    #     single=["$0", eod],
+    #     pair=["$A", eod, "$B:1", f"{eod}:1"],
+    #     special_tokens=[
+    #         (eod, tokenizer.get_vocab()[eod]),
+    #     ],
+    # )
+    print(tokenizer.token_to_id("<s>"))
     tokenizer.post_processor = processors.TemplateProcessing(
-        single=["$0", eod],
-        pair=["$A", eod, "$B:1", f"{eod}:1"],
+        single="<s> $A </s>",
+        pair="<s> $A </s> $B:1 <s>:1",
         special_tokens=[
-            (eod, tokenizer.get_vocab()[eod]),
+            ("<s>", tokenizer.token_to_id("<s>")),
+            ("</s>", tokenizer.token_to_id("</s>")),
         ],
     )
     """
@@ -168,7 +172,7 @@ def main():
     )
     parser.add_argument(
         "-e", "--eod_token",
-        default="<EOD>",
+        default="</s>",
         type=str,
         help="the end-of-document token which appended to the results of encode(), default='<EOD>'",
     )
